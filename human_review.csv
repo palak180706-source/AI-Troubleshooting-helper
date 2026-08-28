@@ -1,0 +1,27 @@
+case_id,status,reviewer_note,corrected_root_cause,corrected_osi_layer,corrected_confidence,corrected_fix_steps,corrected_security_issue
+VLAN-001,Edited,AI hallucinated a trunk encapsulation mismatch and suggested dynamic trunking mode. It completely missed the Native VLAN configuration mismatch (10 vs 99) shown in the show interface trunk output.,Native VLAN mismatch on the trunk link between Switch 1 (Native VLAN 10) and Switch 2 (Native VLAN 99).,Layer 2,High,"Switch2# configure terminal
+Switch2(config)# interface Gi0/1
+Switch2(config-if)# switchport trunk native vlan 10
+Switch2(config-if)# end",True
+GW-001,Edited,"AI misidentified a normal priority/preempt configuration as a fault. The true issue is that R1 and R2 are in mismatched standby groups (Group 1 vs Group 2), causing both to become Active gateways.",HSRP group ID mismatch (Group 1 on R1 vs Group 2 on R2) preventing standby communication.,Layer 3,High,"R2# configure terminal
+R2(config)# interface Gi0/0.10
+R2(config-subif)# no standby 2 ip 192.168.1.254
+R2(config-subif)# standby 1 ip 192.168.1.254
+R2(config-subif)# end",False
+DHCP-001,Edited,"AI suggested setting up a local DHCP pool on the router itself. This is an over-specification error; in a real environment with a central DHCP server, the correct solution is adding an 'ip helper-address' pointing to the server.",Missing DHCP helper-address pointing to central DHCP Server (10.100.1.50) on interface Gi0/0.30.,Layer 3,High,"R1# configure terminal
+R1(config)# interface GigabitEthernet0/0.30
+R1(config-subif)# ip helper-address 10.100.1.50
+R1(config-subif)# end",False
+RT-001,Edited,"AI claimed a Hello/Dead timer mismatch. The timers are actually matching. The real issue is that R1's port is in Area 0 and R2's port is in Area 10, which prevents OSPF neighbor adjacencies.",OSPF Area mismatch (Area 0 on R1 vs Area 10 on R2) preventing neighbor adjacency.,Layer 3,High,"R2# configure terminal
+R2(config)# router ospf 1
+R2(config-router)# no network 10.1.12.0 0.0.0.3 area 10
+R2(config-router)# network 10.1.12.0 0.0.0.3 area 0
+R2(config-router)# end",False
+ACL-001,Edited,"AI proposed removing the entire Access Control List (BLOCK_WEB) from the interface, which introduces a massive security vulnerability. The proper fix is to modify the ACL to remove only the blocking sequence line (no 10).",Access Control List BLOCK_WEB rule 10 explicitly denies HTTPS (port 443) traffic.,Layer 4,High,"R1# configure terminal
+R1(config)# ip access-list extended BLOCK_WEB
+R1(config-ext-nacl)# no 10
+R1(config-ext-nacl)# end",True
+NAT-002,Edited,"AI assumed the NAT access list (ACL 1) was completely missing and suggested a broad permit rule. The real issue is the missing 'overload' keyword on the NAT statement, preventing dynamic port address translation (PAT).","Missing 'overload' keyword in the ip nat statement on Router 1, causing single-IP translation exhaustion.",Layer 3,High,"R1# configure terminal
+R1(config)# no ip nat inside source list 1 interface GigabitEthernet0/1
+R1(config)# ip nat inside source list 1 interface GigabitEthernet0/1 overload
+R1(config)# end",False

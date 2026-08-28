@@ -1,0 +1,323 @@
+case_id,category,symptom,topology_note,show_output,expected_fault,osi_layer,concept_tag,severity
+VLAN-001,VLAN,Host A (VLAN 10) cannot ping Host B (VLAN 10) across the trunk link between Switch 1 and Switch 2.,Host A (192.168.10.5/24) is connected to Switch 1 FastEthernet 0/1. Host B (192.168.10.6/24) is connected to Switch 2 FastEthernet 0/1. Switch 1 Gi0/1 connects to Switch 2 Gi0/1.,"Switch1# show interfaces trunk
+Port        Mode         Encapsulation  Status        Native vlan
+Gi0/1       on           802.1q         trunking      10
+
+Switch2# show interfaces trunk
+Port        Mode         Encapsulation  Status        Native vlan
+Gi0/1       on           802.1q         trunking      99
+
+Switch1# show interface Gi0/1 switchport
+Name: Gi0/1
+Operational Mode: trunk
+Administrative Trunking Encapsulation: dot1q
+Operational Trunking Encapsulation: dot1q
+Negotiation of Trunking: On
+Access Mode VLAN: 1 (default)
+Trunking Native Mode VLAN: 10 (Finance)
+Administrative Native VLAN tagging: disabled
+",Native VLAN mismatch on the trunk link between Switch 1 (Native VLAN 10) and Switch 2 (Native VLAN 99).,Layer 2,native-vlan-mismatch,High
+VLAN-002,VLAN,Users in VLAN 20 on Switch 2 cannot reach the default gateway on Router 1.,Switch 2 is connected to Switch 1 via trunk port Gi0/2. Switch 1 is connected to Router 1. VLAN 20 is configured on both switches.,"Switch2# show interfaces trunk
+Port        Mode         Encapsulation  Status        Native vlan
+Gi0/2       on           802.1q         trunking      1
+Port        Vlans allowed on trunk
+Gi0/2       1-4094
+Port        Vlans allowed and active in management domain
+Gi0/2       1,10,20
+
+Switch1# show interfaces trunk
+Port        Mode         Encapsulation  Status        Native vlan
+Gi0/2       on           802.1q         trunking      1
+Port        Vlans allowed on trunk
+Gi0/2       1,10
+Port        Vlans allowed and active in management domain
+Gi0/2       1,10
+",VLAN 20 is pruned/missing from the allowed VLAN list on Switch 1's trunk interface Gi0/2.,Layer 2,vlan-pruning-allowed-list,High
+VLAN-003,VLAN,A newly deployed PC in the HR department cannot get an IP address or ping any devices.,PC is plugged into Switch 1 FastEthernet 0/5. The HR department uses VLAN 30 (192.168.30.0/24).,"Switch1# show mac address-table interface Fa0/5
+          Mac Address Table
+-------------------------------------------
+Vlan    Mac Address       Type        Ports
+----    -----------       --------    -----
+1       00e0.f711.2233    DYNAMIC     Fa0/5
+
+Switch1# show interface Fa0/5 switchport
+Name: Fa0/5
+Switchport: Enabled
+Administrative Mode: static access
+Operational Mode: static access
+Administrative Access VLAN: 1 (default)
+Operational Access VLAN: 1 (default)
+",Switch port Fa0/5 is assigned to the default VLAN 1 instead of the HR VLAN 30.,Layer 2,incorrect-vlan-assignment,Medium
+VLAN-004,VLAN,The link between Switch 1 and Switch 2 shows down/down and trunking is not operational.,Switch 1 Gi0/2 is cabled to Switch 2 Gi0/2. They are configured for trunking.,"Switch1# show run interface Gi0/2
+interface GigabitEthernet0/2
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+!
+
+Switch2# show run interface Gi0/2
+interface GigabitEthernet0/2
+ switchport trunk encapsulation isl
+ switchport mode trunk
+!
+",Trunking encapsulation mismatch (dot1q on Switch 1 vs ISL on Switch 2) prevents trunk negotiation.,Layer 2,trunk-encapsulation-mismatch,High
+GW-001,Gateway,Hosts experience intermittent packet loss and connection drops when trying to reach the gateway IP 192.168.1.254.,Router 1 (R1) and Router 2 (R2) run HSRP for the default gateway 192.168.1.254 in VLAN 10.,"R1# show standby brief
+                     P indicates configured to preempt.
+                     |
+Interface   Grp  Pri P State    Active          Standby         Virtual IP
+Gi0/0.10    1    110 P Active   local           192.168.1.2     192.168.1.254
+
+R2# show standby brief
+                     P indicates configured to preempt.
+                     |
+Interface   Grp  Pri P State    Active          Standby         Virtual IP
+Gi0/0.10    2    100   Active   local           unknown         192.168.1.254
+",HSRP group ID mismatch (Group 1 on R1 vs Group 2 on R2) causes both routers to act as Active gateways.,Layer 3,hsrp-group-mismatch,Critical
+GW-002,Gateway,"PCs in VLAN 10 cannot ping their gateway or external networks, but VLAN 20 is working fine.",Router 1 acts as router-on-a-stick for VLAN 10 and VLAN 20 via interface Gi0/0.,"R1# show ip interface brief | exclude unassigned
+Interface              IP-Address      OK? Method Status                Protocol
+GigabitEthernet0/0     unassigned      YES unset  up                    up
+GigabitEthernet0/0.10  192.168.10.1    YES manual administratively down down
+GigabitEthernet0/0.20  192.168.20.1    YES manual up                    up
+",The subinterface GigabitEthernet0/0.10 is administratively shut down.,Layer 1,subinterface-shutdown,High
+GW-003,Gateway,Host C (static IP) can ping other hosts in its local subnet but cannot access any external subnets or the internet.,Host C is configured with static IP 10.1.10.50/24. The subnet default gateway is Router 1 (10.1.10.1).,"HostC# ipconfig
+FastEthernet0 Connection:
+   Link-local IPv6 Address.........: fe80::2e0:f7ff:fe22:3344
+   IPv4 Address....................: 10.1.10.50
+   Subnet Mask.....................: 255.255.255.0
+   Default Gateway.................: 10.1.10.254
+
+R1# show ip interface brief
+Interface              IP-Address      OK? Method Status                Protocol
+GigabitEthernet0/1     10.1.10.1       YES manual up                    up
+",Host C has a mismatched default gateway (10.1.10.254) configured instead of the actual router interface (10.1.10.1).,Layer 3,gateway-ip-mismatch,Medium
+GW-004,Gateway,Legacy hosts using Router-Less configurations cannot communicate across subnets despite having Proxy ARP expected.,Hosts are configured without a gateway and expect the router to reply to ARP requests for non-local IPs.,"R1# show ip interface Gi0/0
+GigabitEthernet0/0 is up, line protocol is up
+  Internet address is 192.168.1.1/24
+  Broadcast address is 255.255.255.255
+  Address determined by setup program
+  Helper address is not set
+  Directed broadcast forwarding is disabled
+  Proxy ARP is disabled
+  Local Proxy ARP is disabled
+",Proxy ARP is disabled on Router 1's GigabitEthernet0/0 interface.,Layer 3,proxy-arp-disabled,Low
+DHCP-001,DHCP,PCs in VLAN 30 fail to get an IP address via DHCP and get a 169.254.x.x autoconfiguration address.,Hosts are in VLAN 30. The DHCP Server (10.100.1.50) is in VLAN 100. Router 1 is the default gateway for VLAN 30.,"R1# show running-config interface Gi0/0.30
+interface GigabitEthernet0/0.30
+ encapsulation dot1Q 30
+ ip address 192.168.30.1 255.255.255.0
+!
+
+R1# show ip interface Gi0/0.30
+GigabitEthernet0/0.30 is up, line protocol is up
+  Internet address is 192.168.30.1/24
+  Helper address is not set
+",Missing DHCP helper-address (`ip helper-address 10.100.1.50`) on the router's subinterface Gi0/0.30.,Layer 3,missing-dhcp-helper,High
+DHCP-002,DHCP,New employees in the Finance department cannot connect to the network. Existing users are working normally.,A router acts as the DHCP server for the Finance subnet 192.168.40.0/26 (62 usable hosts).,"R1# show ip dhcp pool Finance
+Pool Finance :
+ Utilization mark (high/low)    : 100 / 0
+ Subnet size (allocated/total)  : 62 / 62
+ IP addresses                   : Current: 62  Max: 62  Excluded: 5
+ Active bindings                : 57
+ Expired bindings               : 0
+ IP address leases              : 57
+",DHCP address pool utilization is at 100% (pool exhaustion). No IP addresses left to allocate.,Layer 3,dhcp-pool-exhaustion,Medium
+DHCP-003,DHCP,"Hosts receiving DHCP addresses cannot ping their gateway, and subnets seem misconfigured.",Router 1 is the DHCP Server for VLAN 50. Gateway is 192.168.50.1.,"R1# show running-config | section ip dhcp pool
+ip dhcp pool VLAN50
+ network 192.168.50.0 255.255.255.128
+ default-router 192.168.50.1
+
+R1# show ip interface brief | include Gi0/0.50
+GigabitEthernet0/0.50  192.168.50.1    YES manual up                    up
+R1# show running-config interface Gi0/0.50
+interface GigabitEthernet0/0.50
+ encapsulation dot1Q 50
+ ip address 192.168.50.1 255.255.255.0
+","Subnet mask mismatch in DHCP pool (configured as 255.255.255.128 /25, but the router subinterface is 255.255.255.0 /24).",Layer 3,dhcp-subnet-mask-mismatch,High
+DHCP-004,DHCP,Host D receives an IP but gets an IP conflict warning. Host D cannot browse internal systems.,A file server has a static IP 192.168.1.10. The DHCP server allocates IPs on the same subnet.,"R1# show ip dhcp conflict
+IP Address        Detection Method   Detection Time
+192.168.1.10      Ping               Aug 28 2026 10:15 AM
+
+R1# show running-config | section ip dhcp
+ip dhcp pool Pool1
+ network 192.168.1.0 255.255.255.0
+ default-router 192.168.1.1
+! (Note: no excluded-address configuration found)
+",DHCP server allocation conflict due to missing `ip dhcp excluded-address` for statically configured servers (192.168.1.10).,Layer 3,dhcp-conflict-missing-exclusion,Medium
+DNS-001,DNS,Hosts can ping 8.8.8.8 but cannot open website google.com in the browser.,Hosts are configured via DHCP. Active DNS server should be 8.8.8.8.,"HostA# ipconfig /all
+FastEthernet0 Connection:
+   IPv4 Address....................: 192.168.10.55
+   Subnet Mask.....................: 255.255.255.0
+   Default Gateway.................: 192.168.10.1
+   DNS Servers.....................: 192.168.10.1
+
+R1# show run | include dns-server
+   dns-server 192.168.10.250
+R1# show ip interface brief | include 192.168.10.250
+   (No interface matches IP 192.168.10.250. DNS server is unreachable/dead)
+",The DHCP pool advertises an unreachable/dead DNS server IP address (192.168.10.250).,Layer 7,incorrect-dns-server-ip,High
+DNS-002,DNS,Network administrator cannot resolve server hostnames from the router's CLI interface.,Admin attempts to ping 'webserver.corp.local' from Router 1.,"R1# ping webserver.corp.local
+Translating ""webserver.corp.local""...domain server (255.255.255.255)
+% Unrecognized host or address, or protocol not running.
+
+R1# show running-config | include domain
+no ip domain-lookup
+ip name-server 8.8.8.8
+",DNS resolution is globally disabled on the router via the `no ip domain-lookup` configuration.,Layer 7,dns-lookup-disabled,Low
+DNS-003,DNS,"Users trying to reach 'intranet.local' are redirected to an old server page, or get connection timeout.",A local DNS server handles internal DNS records.,"DNS_Server# show ip dns view
+DNS View: Default
+ Domain Name: intranet.local
+   Type: A (IPv4 Address)
+   IP Address: 10.10.10.99  (Old IP address. Actual server IP is 10.10.10.100)
+",Stale/incorrect DNS A record mapping for 'intranet.local' on the local DNS server.,Layer 7,stale-dns-a-record,Medium
+DNS-004,DNS,Internal hosts can resolve external websites but cannot resolve intranet resources.,Local DNS Server is 192.168.1.5. External forwarder should be active.,"HostA# nslookup intranet.corp
+Server: LocalDNS
+Address: 192.168.1.5
+*** LocalDNS can't find intranet.corp: Non-existent domain
+
+DNS_Server# show ip dns view
+   (No zone or record loaded for domain corp or intranet.corp)
+",DNS Zone configuration error: The DNS server does not host the local domain zone record.,Layer 7,missing-dns-zone,Medium
+RT-001,Routing,Router 1 and Router 2 fail to form an OSPF neighbor adjacency. No routes are exchanged.,R1 Gi0/1 (10.1.12.1/30) is cabled to R2 Gi0/1 (10.1.12.2/30). OSPF process 1 is active on both.,"R1# show ip ospf neighbor
+   (Output is empty)
+
+R1# show ip ospf interface Gi0/1
+GigabitEthernet0/1 is up, line protocol is up
+  Internet Address 10.1.12.1/30, Area 0
+  Process ID 1, Router ID 1.1.1.1, Network Type BROADCAST, Cost: 1
+  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5
+
+R2# show ip ospf interface Gi0/1
+GigabitEthernet0/1 is up, line protocol is up
+  Internet Address 10.1.12.2/30, Area 10
+  Process ID 1, Router ID 2.2.2.2, Network Type BROADCAST, Cost: 1
+  Timer intervals configured, Hello 10, Dead 40, Wait 40, Retransmit 5
+",OSPF Area mismatch (Area 0 on R1 vs Area 10 on R2) prevents forming a neighbor adjacency.,Layer 3,ospf-area-mismatch,High
+RT-002,Routing,"Branch office LAN cannot reach the HQ LAN, but can ping the headquarters gateway router public IP.",Branch LAN (192.168.10.0/24) connected to BranchRouter. HQ LAN (10.0.0.0/8) connected to HQRouter.,"BranchRouter# show ip route static
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+Gateway of last resort is not set
+S    172.16.1.0/24 [1/0] via 203.0.113.2
+  (No route to HQ subnet 10.0.0.0/8 exists)
+",Missing static route to the remote HQ network (10.0.0.0/8) on the Branch Router.,Layer 3,missing-static-route,High
+RT-003,Routing,OSPF neighbor adjacency is stuck in EXSTART/EXCHANGE state and never transitions to FULL.,R1 and R2 are cabled over a WAN link. Layer 2 is working.,"R1# show ip ospf neighbor
+Neighbor ID     Pri   State           Dead Time   Address         Interface
+2.2.2.2           1   EXSTART/  -     00:00:34    192.168.12.2    Gi0/1
+
+R1# show ip interface Gi0/1 | include MTU
+  MTU is 1500 bytes
+
+R2# show ip interface Gi0/1 | include MTU
+  MTU is 1450 bytes
+",Interface MTU mismatch (1500 bytes on R1 vs 1450 bytes on R2) prevents OSPF database exchange completion.,Layer 3,ospf-mtu-mismatch,High
+RT-004,Routing,Routing loop occurs between R1 and R2; traceroute bounces back and forth indefinitely.,Both routers have static routes pointing to each other for specific subnets.,"R1# show ip route 10.200.1.0
+Routing entry for 10.200.1.0/24
+  Known via ""static"", distance 1, metric 0
+  Routing Descriptor Blocks:
+  * 192.168.12.2, via GigabitEthernet0/0
+
+R2# show ip route 10.200.1.0
+Routing entry for 10.200.1.0/24
+  Known via ""static"", distance 1, metric 0
+  Routing Descriptor Blocks:
+  * 192.168.12.1, via GigabitEthernet0/0
+",Routing loop caused by mutually recursive static routes pointing back and forth between R1 and R2.,Layer 3,routing-loop-static,Critical
+ACL-001,ACL,"Web developer cannot access the HTTPS page on Server 1, but normal HTTP access works fine.",Router 1 has an inbound Access Control List applied on GigabitEthernet0/0.,"R1# show access-lists
+Extended IP access list BLOCK_WEB
+    10 deny tcp any any eq 443
+    20 permit tcp any any eq 80
+    30 permit ip any any
+
+R1# show running-config interface Gi0/0
+interface GigabitEthernet0/0
+ ip address 192.168.1.1 255.255.255.0
+ ip access-group BLOCK_WEB in
+",ACL rule (sequence 10) explicitly denies HTTPS (port 443) traffic.,Layer 4,acl-blocking-needed-port,High
+ACL-002,ACL,"Network administrators are locked out of SSH access to the router, despite physical links being up.",VTY lines are secured with an access class.,"R1# show running-config | section line vty
+line vty 0 4
+ access-class ADMIN_ONLY in
+ transport input ssh
+
+R1# show access-lists ADMIN_ONLY
+Standard IP access list ADMIN_ONLY
+    10 permit 10.99.1.0 0.0.0.255
+    (Implicit deny active. Admin is connecting from IP 192.168.1.50)
+",The implicit deny of the VTY access-class ACL blocks admin connections coming from the management host subnet (192.168.1.50).,Layer 4,vty-acl-implicit-deny,Critical
+ACL-003,ACL,"All inbound traffic to the DMZ servers is blocked, even though rules look correct.",Access list is applied to Router 1 Gi0/1 interface.,"R1# show access-lists DMZ_INBOUND
+Extended IP access list DMZ_INBOUND
+    10 permit tcp any host 172.16.10.10 eq 80
+    20 permit tcp any host 172.16.10.10 eq 443
+
+R1# show running-config interface Gi0/1
+interface GigabitEthernet0/1
+ ip address 172.16.10.1 255.255.255.0
+ ip access-group DMZ_INBOUND out
+   (Note: ACL applied OUTBOUND on LAN-facing interface instead of INBOUND on WAN interface)
+",ACL direction error: ACL is applied outbound blocking return traffic/packets exiting the router interface to DMZ.,Layer 4,acl-wrong-direction,High
+ACL-004,ACL,"Traffic from Host A is completely blocked, even though there's a permit rule for its subnet.",An ACL is applied on the core switch or router interface.,"R1# show access-lists FILTER
+Extended IP access list FILTER
+    10 deny ip 192.168.10.0 0.0.0.255 any
+    20 permit ip 192.168.10.50 0.0.0.0 any (Host A is 192.168.10.50)
+",ACL rule order error: The deny statement for the entire subnet (192.168.10.0/24) precedes the specific permit statement for Host A (192.168.10.50).,Layer 4,acl-rule-order,Medium
+NAT-001,NAT,"Hosts inside the office cannot browse the internet, and no NAT translations are seen.","Router 1 is the NAT border router. LAN interface is Gi0/0, WAN interface is Serial0/0/0.","R1# show ip nat translations
+   (Output is empty)
+
+R1# show running-config interface Gi0/0
+interface GigabitEthernet0/0
+ ip address 192.168.1.1 255.255.255.0
+ ip nat outside
+
+R1# show running-config interface Serial0/0/0
+interface Serial0/0/0
+ ip address 203.0.113.1 255.255.255.252
+ ip nat inside
+","NAT inside/outside interface designations are swapped (Gi0/0 is configured as outside, Serial0/0/0 as inside).",Layer 3,nat-interfaces-swapped,High
+NAT-002,NAT,Only the first user to access the web gets through. All other users fail to load pages.,A single public IP is bound to the WAN interface. PAT (NAT Overload) should be configured.,"R1# show running-config | include ip nat
+ip nat inside source list 1 interface GigabitEthernet0/1
+  (Note: the word 'overload' is missing at the end of the command)
+
+R1# show ip nat translations
+Pro Inside global      Inside local       Outside local      Outside global
+--- 203.0.113.1        192.168.1.5        ---                ---
+","Missing 'overload' keyword in the NAT configuration statement, preventing Port Address Translation (PAT).",Layer 3,missing-nat-overload,Critical
+NAT-003,NAT,"Devices in the Sales department can access the web, but Marketing department devices fail to connect.",Sales subnet is 192.168.10.0/24. Marketing subnet is 192.168.20.0/24.,"R1# show running-config | include ip nat inside source
+ip nat inside source list NAT_ACL interface Gi0/1 overload
+
+R1# show access-lists NAT_ACL
+Standard IP access list NAT_ACL
+    10 permit 192.168.10.0 0.0.0.255
+    (No rule exists for Marketing subnet 192.168.20.0/24)
+",The NAT access control list (NAT_ACL) does not permit/include the Marketing department subnet (192.168.20.0/24).,Layer 3,nat-acl-missing-subnet,High
+NAT-004,NAT,Static NAT mapping does not work for the internal web server. External users get connection refused.,Web server static IP is 192.168.1.10. Public IP is 203.0.113.10.,"R1# show running-config | include ip nat
+ip nat inside source static 192.168.1.100 203.0.113.10
+
+R1# show ip interface brief | include 192.168.1.
+  (Actual web server is configured with 192.168.1.10, not 192.168.1.100)
+",Static NAT configuration error: Mismatched host IP (mapped 192.168.1.100 instead of server's actual IP 192.168.1.10).,Layer 3,static-nat-wrong-ip,Medium
+WLAN-001,Wireless,Smartphones and laptops fail to connect to the 'Office-WiFi' SSID. Shows 'Authentication failed' error.,The SSID is configured with WPA2-Personal security on a standalone Access Point.,"AP# show dot11 ssid Office-WiFi
+SSID: Office-WiFi
+VLAN: 10
+Security: WPA2-PSK
+Pre-Shared Key: CompPass123!   (Admin note: AP configured key is CompPass123!)
+
+Host_Device# show wireless profile
+SSID: Office-WiFi
+Security: WPA2-PSK
+Pre-Shared Key: CompPass123    (User typed key is missing exclamation mark)
+",WPA2 Pre-Shared Key (PSK) password mismatch on client configuration.,Layer 2,wifi-psk-mismatch,High
+WLAN-002,Wireless,Laptops scan for networks but cannot find the 'Guest-WiFi' network in the list.,A corporate lightweight AP is configured for Guest Wi-Fi access.,"WLC# show wlan 2
+WLAN ID.......................................... 2
+Profile Name..................................... Guest-WiFi
+Network Name (SSID).............................. Guest-WiFi
+Status........................................... Enabled
+Broadcast SSID................................... Disabled
+",SSID broadcasting is disabled on the WLC for the Guest-WiFi profile.,Layer 2,ssid-broadcast-disabled,Medium
+WLAN-003,Wireless,Wireless users connect to AP but get an IP address from VLAN 1 (Management) instead of VLAN 80 (Wireless Users).,The AP port is connected to Switch 1 interface FastEthernet 0/12. VLAN 80 is configured on the network.,"Switch1# show interface Fa0/12 switchport
+Name: Fa0/12
+Switchport: Enabled
+Administrative Mode: static access
+Operational Mode: static access
+Administrative Access VLAN: 1 (default)
+Operational Access VLAN: 1 (default)
+",Switch access port Fa0/12 connected to the AP is assigned to VLAN 1 instead of being configured as a trunk port to pass VLAN 80.,Layer 2,ap-switchport-access-vlan,High
+WLAN-004,Wireless,"Wireless clients connect to AP and get IP address, but cannot ping the local gateway.",Wireless LAN Router handles local dhcp and gateway.,"Wireless_Router# show ip interface brief
+Interface              IP-Address      OK? Method Status                Protocol
+Vlan80                 192.168.80.1    YES manual down                  down
+FastEthernet0/1        unassigned      YES unset  up                    up
+",The gateway SVl interface Vlan80 on the wireless router/switch is down.,Layer 1,wireless-gateway-interface-down,High

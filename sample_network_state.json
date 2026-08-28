@@ -1,0 +1,143 @@
+{
+  "devices": {
+    "R1": {
+      "type": "router",
+      "interfaces": {
+        "GigabitEthernet0/0": {
+          "ip_address": "192.168.1.1",
+          "subnet_mask": "255.255.255.0",
+          "status": "up",
+          "protocol": "up"
+        },
+        "GigabitEthernet0/1": {
+          "ip_address": "10.1.1.1",
+          "subnet_mask": "255.255.255.252",
+          "status": "up",
+          "protocol": "up"
+        },
+        "GigabitEthernet0/2": {
+          "ip_address": "192.168.20.1",
+          "subnet_mask": "255.255.255.0",
+          "status": "administratively down",
+          "protocol": "down"
+        }
+      },
+      "routes": [
+        {"destination": "192.168.1.0/24", "type": "connected", "next_hop": "direct"},
+        {"destination": "10.1.1.0/30", "type": "connected", "next_hop": "direct"}
+      ]
+    },
+    "R2": {
+      "type": "router",
+      "interfaces": {
+        "GigabitEthernet0/1": {
+          "ip_address": "10.1.1.2",
+          "subnet_mask": "255.255.255.252",
+          "status": "up",
+          "protocol": "up"
+        },
+        "GigabitEthernet0/0": {
+          "ip_address": "172.16.1.1",
+          "subnet_mask": "255.255.255.0",
+          "status": "up",
+          "protocol": "up"
+        }
+      },
+      "routes": [
+        {"destination": "172.16.1.0/24", "type": "connected", "next_hop": "direct"},
+        {"destination": "10.1.1.0/30", "type": "connected", "next_hop": "direct"},
+        {"destination": "0.0.0.0/0", "type": "static", "next_hop": "10.1.1.1"}
+      ]
+    },
+    "SW1": {
+      "type": "switch",
+      "vlans": [1, 10, 20],
+      "interfaces": {
+        "FastEthernet0/1": {
+          "mode": "access",
+          "access_vlan": 10,
+          "status": "up",
+          "protocol": "up"
+        },
+        "FastEthernet0/2": {
+          "mode": "access",
+          "access_vlan": 10,
+          "status": "up",
+          "protocol": "up"
+        },
+        "FastEthernet0/3": {
+          "mode": "access",
+          "access_vlan": 20,
+          "status": "up",
+          "protocol": "up"
+        },
+        "FastEthernet0/4": {
+          "mode": "access",
+          "access_vlan": 20,
+          "status": "up",
+          "protocol": "up"
+        },
+        "FastEthernet0/5": {
+          "mode": "access",
+          "access_vlan": 99,
+          "status": "up",
+          "protocol": "up"
+        }
+      }
+    },
+    "HostA": {
+      "type": "host",
+      "interfaces": {
+        "FastEthernet0": {
+          "ip_address": "192.168.1.10",
+          "subnet_mask": "255.255.255.0",
+          "gateway": "192.168.1.1",
+          "status": "up",
+          "protocol": "up"
+        }
+      }
+    },
+    "HostB": {
+      "type": "host",
+      "interfaces": {
+        "FastEthernet0": {
+          "ip_address": "192.168.1.10",
+          "subnet_mask": "255.255.255.0",
+          "gateway": "192.168.1.1",
+          "status": "up",
+          "protocol": "up"
+        }
+      }
+    },
+    "HostC": {
+      "type": "host",
+      "interfaces": {
+        "FastEthernet0": {
+          "ip_address": "192.168.1.20",
+          "subnet_mask": "255.255.255.128",
+          "gateway": "192.168.1.1",
+          "status": "up",
+          "protocol": "up"
+        }
+      }
+    },
+    "HostD": {
+      "type": "host",
+      "interfaces": {
+        "FastEthernet0": {
+          "ip_address": "192.168.1.30",
+          "subnet_mask": "255.255.255.0",
+          "gateway": "192.168.10.254",
+          "status": "up",
+          "protocol": "up"
+        }
+      }
+    }
+  },
+  "expected_routes": [
+    {
+      "router": "R1",
+      "network": "172.16.1.0/24"
+    }
+  ]
+}
