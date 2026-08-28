@@ -8,7 +8,7 @@ It also features a deterministic local rules engine (non-AI) to catch basic conf
 
 ## 🚀 Live Demo
 The application is deployed and reachable at:
-**[NetSage AI Live App on Streamlit Cloud](https://netsage-ai.streamlit.app)** *(Sample URL - replace with your actual deployment link)*
+**[NetSage AI Live App on Streamlit Cloud](https://netsage-ai.streamlit.app)**
 
 *Note: The live demo runs in offline/demo mode by default using pre-generated diagnoses. If you add your `ANTHROPIC_API_KEY` to the Streamlit secrets, you can trigger live AI diagnostics dynamically.*
 
