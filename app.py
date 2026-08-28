@@ -2,8 +2,12 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import sys
 import plotly.express as px
 import plotly.graph_objects as go
+
+# Add the project root to sys.path to prevent import issues on Streamlit Cloud
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Import modules from src
 from src.dashboard_data import load_dashboard_stats
@@ -456,7 +460,7 @@ elif tab_selection == "Troubleshooting Workspace":
                         st.success(f"Audit decision saved: Accepted case {selected_case_id}")
                     elif audit_status == "Reject":
                         # Save review as Rejected
-                        save_review(selected_case_id, "Rejected", reviewer_note)
+                        save_review(selected_case_id, "Reject", reviewer_note)
                         st.success(f"Audit decision saved: Rejected case {selected_case_id}")
                     else:
                         # Save review as Edited with corrected values
